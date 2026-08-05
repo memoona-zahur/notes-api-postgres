@@ -1,8 +1,18 @@
 """
-Password hashing, JWT creation/decoding, and the get_current_user
-dependency. One shared _decode() collapses missing/garbage/expired tokens
-into the same 401. get_current_admin is added in a later step when the
-admin route lands.
+Password hashing, JWT creation/decoding, and the two auth dependencies.
+
+Two dependencies for the assignment's two different failure modes:
+  - get_current_user  -> 401 on missing/garbage/expired token (any /notes/* route)
+  - get_current_admin -> 403 on a *valid* token that lacks the admin role claim
+                          (the caller is authenticated, just not authorized)
+
+get_current_admin checks the JWT's own "role" claim directly, matching the
+spec's literal wording ("requires the admin role claim") — it does not do a
+second DB lookup of the user's current role. That's a deliberate trade-off:
+a token keeps whatever role it was issued with until it expires, even if an
+admin's role is later revoked in the DB. Documented here so it's a known
+choice, not a surprise — short token lifetimes (see ACCESS_TOKEN_EXPIRE_MINUTES)
+are what bound the blast radius of that trade-off.
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -55,7 +65,7 @@ def create_access_token(user_id: int, role: str, expires_minutes: Optional[int] 
 
 
 def _decode(credentials: Optional[HTTPAuthorizationCredentials]) -> dict:
-    """Shared by all auth dependencies so missing/garbage/expired are handled identically."""
+    """Shared by both dependencies so missing/garbage/expired are handled identically."""
     if credentials is None:
         raise _UNAUTHENTICATED  # missing token
     try:
@@ -76,4 +86,18 @@ def get_current_user(
         # Token is well-formed but the user behind it is gone (or was
         # deleted) — still an auth failure, not a 404.
         raise _UNAUTHENTICATED
+    return user
+
+
+def get_current_admin(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> models.User:
+    payload = _decode(credentials)
+    user = db.get(models.User, int(payload["sub"]))
+    if user is None:
+        raise _UNAUTHENTICATED
+    if payload.get("role") != "admin":
+        # Authenticated, just not authorized — 403, not 401.
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     return user

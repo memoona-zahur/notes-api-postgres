@@ -1,15 +1,17 @@
 """
 App entrypoint. Route logic lives in app/routers/. Deliberately does NOT
 call Base.metadata.create_all() here — the schema is built and evolved
-entirely through Alembic migrations (`alembic upgrade head`).
+entirely through Alembic migrations (`alembic upgrade head`), per the
+assignment's requirement. See README's setup steps for the correct order.
 """
 from fastapi import FastAPI
 
-from app.routers import notes
+from app.routers import notes, admin
 
 app = FastAPI(title="Notes API")
 
 app.include_router(notes.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")
