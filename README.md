@@ -151,11 +151,15 @@ bash run_all_tests.sh
 # => RESULTS: 30 passed, 0 failed
 ```
 
-To run the same suite against a real Postgres test database instead:
+To run the same suite against a real Postgres test database instead, first
+create the test database (SQLAlchemy creates the tables, but not the
+database itself), then point pytest at it:
 
 ```bash
+sudo -u postgres psql -c "CREATE DATABASE notes_test_db OWNER notes_user;"   # once
 export TEST_DATABASE_URL="postgresql+psycopg2://notes_user:notes_password@localhost:5432/notes_test_db"
 pytest -v
+# => 23 passed
 ```
 
 One test per line of the assignment's checklist, plus a full set for the
