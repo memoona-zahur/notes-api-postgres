@@ -45,10 +45,9 @@ class Note(Base):
     title = Column(String(255), nullable=False)
     body = Column(Text, nullable=False)
 
-    # No index on owner_id yet — ownership filtering (the query pattern that
-    # would justify it) doesn't exist in the code until a later step, so the
-    # index is added by its own incremental migration (0002) once it does.
-    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # index=True reflects the *current* schema state. It was added by
+    # migration 0002, not 0001 — see that migration's docstring for why.
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
