@@ -142,6 +142,15 @@ pytest -v
 # => 23 passed
 ```
 
+For a single command that checks *everything* — Postgres connectivity,
+Alembic migrations on real Postgres, seed, pytest, then ~30 live curl
+checks against uvicorn (every assignment status code):
+
+```bash
+bash run_all_tests.sh
+# => RESULTS: 30 passed, 0 failed
+```
+
 To run the same suite against a real Postgres test database instead:
 
 ```bash
