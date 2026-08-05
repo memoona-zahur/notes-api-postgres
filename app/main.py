@@ -15,6 +15,11 @@ app.include_router(notes.router)
 app.include_router(admin.router)
 
 
+@app.get("/")
+def root() -> dict:
+    return {"name": "Notes API", "docs": "/docs", "health": "/health", "api": "/api/v1"}
+
+
 @app.get("/health")
 def healthcheck() -> dict:
     return {"status": "ok"}
