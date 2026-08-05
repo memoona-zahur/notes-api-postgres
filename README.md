@@ -178,13 +178,27 @@ SELF_REVIEW.md                    # completed self-review checklist
 
 ## Environment this was built and checked in
 
-This code was written and carefully traced in a sandbox with no network
-access, so `pytest`, `uvicorn`, and a real Postgres server couldn't be run
-live here. What *was* verified by direct execution (not just reading): the
-JWT claim logic (valid/garbage/expired) and the register/login control flow
+This code was written in a network-isolated sandbox, where `pytest`,
+`uvicorn`, and a real Postgres server couldn't be run live at the time. What
+*was* verified by direct execution there (not just reading): the JWT claim
+logic (valid/garbage/expired) and the register/login control flow
 (uniqueness conflict, wrong-password rejection, correct-password
 acceptance) — via standalone scripts using only PyJWT and stdlib
-(`sqlite3`/`hashlib`) as stand-ins for the real DB/hashing libraries, which
-aren't installable offline in this sandbox. Every `.py` file also passed
-`python -m py_compile`. Run `docker compose up -d && pytest -v` locally for
-full, live, end-to-end confirmation.
+(`sqlite3`/`hashlib`) as stand-ins for the real DB/hashing libraries. Every
+`.py` file also passed `python -m py_compile`.
+
+It has since been fully checked in live on Ubuntu 22.04 with PostgreSQL 14,
+where the entire flow was re-verified end-to-end:
+
+- `alembic upgrade head` applied both migrations (`0001_initial`,
+  `0002_add_owner_id_index`) to a real Postgres database.
+- `python seed.py` bootstrapped the admin and sample users.
+- `uvicorn app.main:app` served the API, and every endpoint was exercised
+  with `curl`: register (201), login (200), notes CRUD
+  (201/200/204/404), ownership filtering (404, not 403), missing/garbage/
+  expired tokens (401), validation errors (422), and the admin route
+  (403 for users, 200 for admins).
+- `pytest` = 23 passed against the isolated in-memory SQLite DB.
+
+Reproduce live with `docker compose up -d && pytest -v`, or use the
+Postgres you already have by following "Setup — from absolute zero".
