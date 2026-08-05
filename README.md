@@ -11,24 +11,42 @@ Passlib (bcrypt) · Pydantic v2
 
 ## Setup — from absolute zero
 
+Postgres can come from Docker **or** a native install — pick one, then do
+the shared Python steps below. Both produce the same database, user, and
+password the app expects by default (`DATABASE_URL` in `.env.example`).
+
+**Option A — Postgres via Docker** (no local install needed):
+
 ```bash
-# 1. Start Postgres (needs Docker installed)
 docker compose up -d
 docker compose ps                # wait until "healthy"
+```
 
-# 2. Python env
+**Option B — native Postgres** (e.g. Ubuntu):
+
+```bash
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl enable --now postgresql
+sudo -u postgres psql -c "CREATE USER notes_user WITH PASSWORD 'notes_password';"
+sudo -u postgres psql -c "CREATE DATABASE notes_db OWNER notes_user;"
+```
+
+Then the shared steps:
+
+```bash
+# 1. Python env
 python -m venv venv
 source venv/bin/activate         # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt  # pins bcrypt==4.0.1 — required by passlib 1.7.4
 
-# 3. Config
-cp .env.example .env             # defaults already match docker-compose.yml
+# 2. Config
+cp .env.example .env             # defaults already match the database above
 python -c "import secrets; print(secrets.token_hex(32))"   # paste into .env as JWT_SECRET_KEY
 
-# 4. Schema — entirely via Alembic, nothing else creates tables
+# 3. Schema — entirely via Alembic, nothing else creates tables
 alembic upgrade head
 
-# 5. Sample data (also bootstraps the first admin — see "Auth" below)
+# 4. Sample data (also bootstraps the first admin — see "Auth" below)
 python seed.py
 ```
 
@@ -113,15 +131,18 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/api/v1/notes
 
 ## Tests
 
+`pytest -v` needs **no** database at all — it runs against an isolated
+in-memory SQLite DB by default, so Docker/Postgres don't need to be up to
+run the automated suite. This is a deliberate, common pattern; it does
+**not** mean production is SQLite (it's Postgres-only — see
+`app/database.py`), and it doesn't test Alembic itself.
+
 ```bash
 pytest -v
+# => 23 passed
 ```
 
-Runs against an isolated in-memory SQLite DB by default — fast, no external
-service required. This is a deliberate, common pattern; it does **not**
-mean production is SQLite (it's Postgres-only — see `app/database.py`), and
-it doesn't test Alembic itself. To run the same suite against a real
-Postgres test database instead:
+To run the same suite against a real Postgres test database instead:
 
 ```bash
 export TEST_DATABASE_URL="postgresql+psycopg2://notes_user:notes_password@localhost:5432/notes_test_db"
@@ -131,6 +152,20 @@ pytest -v
 One test per line of the assignment's checklist, plus a full set for the
 added register/login/promote flow — see `tests/test_notes.py` and
 `tests/test_auth.py`.
+
+## Live smoke test (server + real Postgres)
+
+To confirm the whole stack end-to-end — real Postgres, Alembic schema,
+uvicorn, JWT auth, ownership filtering:
+
+1. Start the server: `uvicorn app.main:app --reload`
+2. Grab a token for the seeded admin and a normal user (`python seed.py`
+   prints ready-made tokens), then run the curl examples in "Try the
+   required routes with curl" below.
+3. Expected codes: register **201**, login **200**, notes CRUD
+   **201/200/204**, someone else's note **404** (not 403), no/garbage/
+   expired token **401**, invalid payload **422**, admin route **403** for
+   users and **200** for admins.
 
 ## Migrations
 
@@ -149,7 +184,7 @@ alembic history            # see the schema's history
 
 `app/main.py` deliberately does **not** call `Base.metadata.create_all()` —
 the schema is built and evolved entirely through these migrations, exactly
-as the assignment requires. If you skip step 4 in setup, the app will fail
+as the assignment requires. If you skip step 3 in setup, the app will fail
 to find its tables rather than silently building them a different way.
 
 ## Project layout
