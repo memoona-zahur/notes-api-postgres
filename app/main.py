@@ -6,10 +6,11 @@ assignment's requirement. See README's setup steps for the correct order.
 """
 from fastapi import FastAPI
 
-from app.routers import notes, admin
+from app.routers import auth, notes, admin
 
 app = FastAPI(title="Notes API")
 
+app.include_router(auth.router)
 app.include_router(notes.router)
 app.include_router(admin.router)
 
