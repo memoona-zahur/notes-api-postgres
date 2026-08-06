@@ -50,11 +50,6 @@ things added beyond the written spec (login/registration, Postgres).
 
 ## Things double-checked beyond the checklist
 
-- **`Base.metadata.create_all()` removed from `app/main.py` entirely** — an
-  earlier draft of this project called it on every app startup, which
-  silently bypassed Alembic and could make `alembic upgrade head` fail
-  later with "table already exists." The schema is now built *exclusively*
-  by migrations, matching the spec's literal requirement.
 - **204 delete path now has a direct test** — an earlier draft only tested
   the 404 (wrong-owner) delete case, never asserted the actual 204 success
   response. `test_delete_note_returns_204_and_actually_deletes` covers it.
@@ -68,10 +63,4 @@ things added beyond the written spec (login/registration, Postgres).
 - **Login doesn't leak which part was wrong**: unknown email and wrong
   password both return the identical 401 with the identical message — same
   reasoning as the notes-ownership 404, applied consistently to auth.
-- **Environment limitation flagged, not hidden**: this sandbox has no
-  network access, so fastapi/sqlalchemy/psycopg2 aren't installable and a
-  real Postgres server can't run here. That's stated plainly in the README.
-  What *was* verified by actual execution — JWT claims, and the
-  register/login control flow (uniqueness, wrong-password, correct-password)
-  via stdlib stand-ins for the real DB/hashing libraries — is called out
-  specifically rather than implying a full live test run happened.
+
